@@ -1,0 +1,8 @@
+{
+  "name": "Interview Copilot",
+  "description": "An elite real-time interview copilot that analyzes live audio, detects intents, and suggests AI-generated responses using Gemini.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": []
+}
