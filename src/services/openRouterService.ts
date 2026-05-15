@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 export interface CopilotContext {
   resume: string;
   companyInfo: string;
@@ -12,7 +14,7 @@ export interface CopilotResponse {
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const TRANSCRIBE_MODEL = "google/gemini-3.1-flash-lite";
-const REASONING_MODEL = "openai/gpt-5.1-codex-mini";
+const REASONING_MODEL = "openai/gpt-4o";
 
 function buildSystemPrompt(contextData: CopilotContext): string {
   let contextStr = "";

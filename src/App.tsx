@@ -8,8 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-import { useAudioRecorder } from './hooks/useAudioRecorder';
-import { askReasoningModelStream, transcribeAudio, CopilotContext, CopilotResponse } from './services/openRouterService';
+import { useRealtimeTranscription } from './hooks/useRealtimeTranscription';
+import { askReasoningModelStream, CopilotContext, CopilotResponse } from './services/openRouterService';
 import { blobToAudioBuffer, audioBufferToWav } from './utils/audioConverter';
 
 interface Metrics {
@@ -59,43 +59,18 @@ export default function App() {
     }
   }, [transcript]);
 
-  const handleRecordingComplete = useCallback(async (audioBlob: Blob) => {
+  const handleRealtimeTranscriptionComplete = useCallback(async (transcribedText: string) => {
     try {
-      setIsTranscribing(true);
-
-      const audioBuffer = await blobToAudioBuffer(audioBlob);
-      const wavArrayBuffer = audioBufferToWav(audioBuffer);
-
-      let binary = '';
-      const bytes = new Uint8Array(wavArrayBuffer);
-      const len = bytes.byteLength;
-      for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      const base64Audio = window.btoa(binary);
-
-      const format = 'wav';
-
-      const t0 = performance.now();
-      const transcribedText = await transcribeAudio(base64Audio, format);
-      const t1 = performance.now();
-
-      const tLatency = (t1 - t0) / 1000;
-      const tWords = transcribedText ? transcribedText.split(/\s+/).length : 0;
-      const tWps = tWords / Math.max(tLatency, 0.01);
-
-      setIsTranscribing(false);
-
       if (transcribedText && !transcribedText.startsWith("ERROR")) {
         setTranscript(prev => [
           ...prev,
-          { id: Date.now().toString(), text: transcribedText, role: 'interviewer', timestamp: Date.now() }
+          { id: Date.now().toString(), text: transcribedText, role: 'candidate', timestamp: Date.now() }
         ]);
 
         const currentMetrics = {
-          transcriptionLatency: tLatency,
-          transcriptionWords: tWords,
-          transcriptionWps: tWps,
+          transcriptionLatency: 0,
+          transcriptionWords: transcribedText.split(/\s+/).length,
+          transcriptionWps: 0,
           reasoningLatency: 0,
           reasoningWords: 0,
           reasoningWps: 0,
@@ -126,7 +101,7 @@ export default function App() {
           reasoningLatency: rLatency,
           reasoningWords: rWords,
           reasoningWps: rWps,
-          totalLatency: tLatency + rLatency,
+          totalLatency: rLatency,
           isReasoningComplete: true
         });
 
@@ -136,7 +111,6 @@ export default function App() {
     } catch (err) {
       console.error(err);
     } finally {
-      setIsTranscribing(false);
       setIsAnalyzing(false);
     }
   }, [context]);
@@ -185,7 +159,9 @@ export default function App() {
     setIsAnalyzing(false);
   }, [transcript, context, metrics]);
 
-  const { isRecording, startRecording, stopRecording, toggleRecording, isSupported } = useAudioRecorder(handleRecordingComplete);
+
+
+  const { isRecording, partialTranscript, startRecording, stopRecording, toggleRecording, isSupported } = useRealtimeTranscription(handleRealtimeTranscriptionComplete);
 
   // Keyboard shortcuts for recording
   useEffect(() => {
@@ -410,7 +386,7 @@ export default function App() {
                   <div className="space-y-1 mt-4">
                     <p>
                       <span className="text-zinc-600">[...]: </span>
-                      <span className="text-zinc-400 italic">Recording...</span>
+                      <span className="text-zinc-400 italic">{partialTranscript}</span>
                       <span className="w-1 h-3 bg-red-500 inline-block ml-1 animate-pulse align-middle"></span>
                     </p>
                   </div>
