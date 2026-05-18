@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Mic, MicOff, Settings, Briefcase, User, FileText, BrainCircuit, RefreshCw, Activity, Loader2, Edit2, Play } from 'lucide-react';
+import { Mic, MicOff, Settings, Briefcase, User, FileText, BrainCircuit, RefreshCw, Activity, Loader2, Edit2, Play, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 import { useAudioRecorder } from './hooks/useAudioRecorder';
-import { askReasoningModelStream, transcribeAudio, CopilotContext, CopilotResponse } from './services/openRouterService';
+import { askReasoningModelStream, transcribeAudio, CopilotContext, CopilotResponse, DEFAULT_WHIRLPOOL_DOCUMENT } from './services/openRouterService';
 import { blobToAudioBuffer, audioBufferToWav } from './utils/audioConverter';
 
 interface Metrics {
@@ -35,13 +35,41 @@ const formatMarkdown = (text: string) => {
 };
 
 export default function App() {
-  const [context, setContext] = useState<CopilotContext>({
-    resume: '',
-    companyInfo: '',
-    jobDescription: '',
-    targetRole: '',
-    extraInfo: ''
+  const [context, setContext] = useState<CopilotContext>(() => {
+    const saved = localStorage.getItem('interview_copilot_context');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (!parsed.whirlpoolDocument) {
+          parsed.whirlpoolDocument = DEFAULT_WHIRLPOOL_DOCUMENT;
+        }
+        return parsed;
+      } catch (e) {
+        console.error("Failed to parse saved context, using defaults", e);
+      }
+    }
+    return {
+      resume: '',
+      companyInfo: '',
+      jobDescription: '',
+      targetRole: '',
+      extraInfo: '',
+      whirlpoolDocument: DEFAULT_WHIRLPOOL_DOCUMENT
+    };
   });
+
+  useEffect(() => {
+    localStorage.setItem('interview_copilot_context', JSON.stringify(context));
+  }, [context]);
+
+  const handleRestoreDefaultDocument = () => {
+    if (window.confirm("Are you sure you want to restore the Whirlpool document to its original defaults? Any custom edits will be overwritten.")) {
+      setContext(prev => ({
+        ...prev,
+        whirlpoolDocument: DEFAULT_WHIRLPOOL_DOCUMENT
+      }));
+    }
+  };
 
   const [transcript, setTranscript] = useState<Array<{ id: string; text: string; role: 'interviewer' | 'candidate'; timestamp: number }>>([]);
   const [editableTranscriptId, setEditableTranscriptId] = useState<string | null>(null);
@@ -51,6 +79,7 @@ export default function App() {
   const [isTranscribing, setIsTranscribing] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Auto scroll transcript to bottom
   useEffect(() => {
@@ -107,13 +136,22 @@ export default function App() {
         setIsAnalyzing(true);
         setCopilotResponse(null);
 
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        abortControllerRef.current = new AbortController();
+
         const r0 = performance.now();
         let finalAdvice = "";
 
-        await askReasoningModelStream(transcribedText, context, (currentText) => {
-          finalAdvice = currentText;
-          setCopilotResponse({ answer: currentText });
-        });
+        try {
+          await askReasoningModelStream(transcribedText, context, (currentText) => {
+            finalAdvice = currentText;
+            setCopilotResponse({ answer: currentText });
+          }, abortControllerRef.current.signal);
+        } finally {
+          abortControllerRef.current = null;
+        }
 
         const r1 = performance.now();
 
@@ -160,13 +198,22 @@ export default function App() {
       });
     }
 
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     const r0 = performance.now();
     let finalAdvice = "";
 
-    await askReasoningModelStream(lastMsg.text, context, (currentText) => {
-      finalAdvice = currentText;
-      setCopilotResponse({ answer: currentText });
-    });
+    try {
+      await askReasoningModelStream(lastMsg.text, context, (currentText) => {
+        finalAdvice = currentText;
+        setCopilotResponse({ answer: currentText });
+      }, abortControllerRef.current.signal);
+    } finally {
+      abortControllerRef.current = null;
+    }
 
     const r1 = performance.now();
     const rLatency = (r1 - r0) / 1000;
@@ -187,6 +234,22 @@ export default function App() {
 
   const { isRecording, startRecording, stopRecording, toggleRecording, isSupported } = useAudioRecorder(handleRecordingComplete);
 
+  const handleCancelAndReset = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    if (isRecording) {
+      stopRecording();
+    }
+    setIsAnalyzing(false);
+    setIsTranscribing(false);
+    setCopilotResponse(null);
+    setMetrics(null);
+    setEditableTranscriptId(null);
+    console.log("Reasoning ongoing canceled and session reset.");
+  }, [isRecording, stopRecording]);
+
   // Keyboard shortcuts for recording
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -202,12 +265,15 @@ export default function App() {
       } else if (key === 's' && isRecording) {
         event.preventDefault();
         stopRecording();
+      } else if (key === 'd') {
+        event.preventDefault();
+        handleCancelAndReset();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isRecording, startRecording, stopRecording, isSupported, isTranscribing, isAnalyzing]);
+  }, [isRecording, startRecording, stopRecording, isSupported, isTranscribing, isAnalyzing, handleCancelAndReset]);
 
   const clearTranscript = () => {
     setTranscript([]);
@@ -263,6 +329,38 @@ export default function App() {
                         className="bg-zinc-950 border-zinc-800 text-zinc-200 focus:border-emerald-500"
                       />
                     </div>
+
+                    <details className="group border border-emerald-800/30 rounded-lg p-3 bg-zinc-950/50 open:bg-zinc-950 border-emerald-500/20 shadow-[0_0_15px_-3px_rgba(16,185,129,0.05)]">
+                      <summary className="text-[11px] font-bold uppercase tracking-widest text-emerald-400 cursor-pointer flex items-center justify-between outline-none">
+                        <span className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-emerald-500" /> Whirlpool Experience Grounding
+                        </span>
+                        <span className="text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 text-emerald-400 bg-emerald-500/5 font-mono">
+                          {context.whirlpoolDocument ? `${context.whirlpoolDocument.length} chars` : 'Empty'}
+                        </span>
+                      </summary>
+
+                      <div className="mt-3 space-y-3">
+                        <div className="flex justify-between items-center text-[10px] text-zinc-400 font-mono">
+                          <span>Continuous document paste style context grounding</span>
+                          <button
+                            type="button"
+                            onClick={handleRestoreDefaultDocument}
+                            className="text-emerald-500 hover:text-emerald-400 font-semibold underline underline-offset-2 transition-colors cursor-pointer"
+                          >
+                            Restore Default Document
+                          </button>
+                        </div>
+
+                        <Textarea
+                          placeholder="Paste your Whirlpool projects, roles, contributions, impact, and decisions here as a single unified text document..."
+                          value={context.whirlpoolDocument}
+                          onChange={(e) => handleContextChange('whirlpoolDocument', e.target.value)}
+                          className="resize-y bg-[#09090b] border-zinc-800 text-zinc-200 focus:border-emerald-500 text-[13px] font-mono leading-relaxed"
+                          rows={15}
+                        />
+                      </div>
+                    </details>
 
                     <details className="group border border-zinc-800 rounded-lg p-3 bg-zinc-950/50 open:bg-zinc-950">
                       <summary className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 cursor-pointer flex items-center gap-2 outline-none">
@@ -440,15 +538,23 @@ export default function App() {
                   <Play className="w-3 h-3" /> Retry
                 </button>
               )}
-              {isAnalyzing && !copilotResponse ? (
-                <span className="px-2 py-0.5 bg-zinc-800 rounded-full text-[9px] text-zinc-400 font-bold uppercase tracking-tighter animate-pulse flex items-center gap-1"><Loader2 className="w-2 h-2 animate-spin" /> Generating</span>
-              ) : copilotResponse ? (
-                <>
-                  <span className="px-2 py-0.5 bg-zinc-800 rounded-full text-[9px] text-emerald-400 font-bold uppercase tracking-tighter flex items-center gap-1">
-                    {isAnalyzing && <Loader2 className="w-2 h-2 animate-spin" />}
-                    Ready
+              {isAnalyzing ? (
+                <div className="flex gap-2 items-center">
+                  <button
+                    onClick={handleCancelAndReset}
+                    className="text-[9px] text-red-400 hover:text-red-300 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded uppercase font-bold tracking-tighter transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Press D key or click to Cancel reasoning and start new session"
+                  >
+                    Cancel [D]
+                  </button>
+                  <span className="px-2 py-0.5 bg-zinc-800 rounded-full text-[9px] text-zinc-400 font-bold uppercase tracking-tighter animate-pulse flex items-center gap-1">
+                    <Loader2 className="w-2 h-2 animate-spin" /> {copilotResponse ? 'Streaming' : 'Generating'}
                   </span>
-                </>
+                </div>
+              ) : copilotResponse ? (
+                <span className="px-2 py-0.5 bg-zinc-800 rounded-full text-[9px] text-emerald-400 font-bold uppercase tracking-tighter flex items-center gap-1">
+                  Ready
+                </span>
               ) : null}
             </div>
           </div>
@@ -522,6 +628,30 @@ export default function App() {
                 <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">Target Role</p>
                 <div className="text-xs text-zinc-500 italic line-clamp-3">
                   {context.targetRole || 'Not provided.'}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest flex items-center gap-1">
+                  <Building2 className="w-3.5 h-3.5" /> Whirlpool Grounding
+                </p>
+                <div className="text-xs bg-[#0c0c0e] p-2 rounded border border-zinc-800/80 text-zinc-300 relative">
+                  {context.whirlpoolDocument && context.whirlpoolDocument.trim() ? (
+                    <>
+                      <div className="flex justify-between items-center mb-1 pb-1 border-b border-zinc-800/60">
+                        <span className="font-mono text-[9px] uppercase tracking-tighter text-zinc-500">Continuous Document</span>
+                        <span className="text-[8px] uppercase tracking-tighter px-1.5 py-0.25 rounded bg-emerald-500/10 text-emerald-400 font-mono font-bold">Grounded</span>
+                      </div>
+                      <div className="text-zinc-400 italic line-clamp-4 font-mono text-[11px] whitespace-pre-line">
+                        {context.whirlpoolDocument}
+                      </div>
+                      <div className="mt-1 text-[9px] text-zinc-600 text-right font-mono">
+                        {context.whirlpoolDocument.length} characters
+                      </div>
+                    </>
+                  ) : (
+                    <span className="text-zinc-600 italic">No Whirlpool experience loaded.</span>
+                  )}
                 </div>
               </div>
               <div className="space-y-2">
