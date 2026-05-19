@@ -29,32 +29,55 @@ const formatMarkdown = (text: string) => {
   
   const lines = text.split('\n');
   return lines.map((line, lineIdx) => {
+    const trimmed = line.trim();
     let content: React.ReactNode = line;
+    let isBullet = false;
     
-    if (line.trim() === 'ANSWER:') {
-      content = <span className="text-emerald-400 font-extrabold tracking-widest text-[14px] block mt-2 mb-1">ANSWER</span>;
-    } else if (line.trim() === 'SYSTEM INTEGRATOR POV ANSWER:') {
-      content = <span className="text-emerald-400 font-extrabold tracking-widest text-[14px] block mt-2 mb-1">SYSTEM INTEGRATOR POV ANSWER</span>;
-    } else if (line.trim() === 'SYSTEM INTEGRATION HIGHLIGHTS:') {
-      content = <span className="text-emerald-400 font-extrabold tracking-widest text-[14px] block mt-4 mb-1">SYSTEM INTEGRATION HIGHLIGHTS</span>;
-    } else if (line.trim() === 'REFERENCED DOCUMENTS:') {
-      content = <span className="text-cyan-400 font-extrabold tracking-widest text-[14px] block mt-4 mb-1">REFERENCED DOCUMENTS</span>;
-    } else if (line.trim() === 'KEYWORDS:') {
-      content = <span className="text-amber-500 font-extrabold tracking-widest text-[14px] block mt-4 mb-1">KEYWORDS</span>;
-    } else if (line.trim() === '') {
-      return <div key={lineIdx} className="h-2" />;
+    if (trimmed === 'ANSWER:') {
+      content = <span className="text-emerald-400 font-extrabold tracking-widest text-[15px] block mt-5 mb-2.5 pb-1 border-b border-emerald-500/10 flex items-center gap-2">ANSWER</span>;
+    } else if (trimmed === 'SYSTEM INTEGRATOR POV ANSWER:') {
+      content = <span className="text-emerald-400 font-extrabold tracking-widest text-[15px] block mt-5 mb-2.5 pb-1 border-b border-emerald-500/10 flex items-center gap-2">SYSTEM INTEGRATOR POV ANSWER</span>;
+    } else if (trimmed === 'SYSTEM INTEGRATION HIGHLIGHTS:') {
+      content = <span className="text-emerald-400 font-extrabold tracking-widest text-[15px] block mt-6 mb-2.5 pb-1 border-b border-emerald-500/10 flex items-center gap-2">SYSTEM INTEGRATION HIGHLIGHTS</span>;
+    } else if (trimmed === 'REFERENCED DOCUMENTS:') {
+      content = <span className="text-cyan-400 font-extrabold tracking-widest text-[15px] block mt-6 mb-2.5 pb-1 border-b border-cyan-500/10 flex items-center gap-2">REFERENCED DOCUMENTS</span>;
+    } else if (trimmed === 'KEYWORDS:') {
+      content = <span className="text-amber-500 font-extrabold tracking-widest text-[15px] block mt-6 mb-2.5 pb-1 border-b border-amber-500/10 flex items-center gap-2">KEYWORDS</span>;
+    } else if (trimmed === '') {
+      return <div key={lineIdx} className="h-3" />;
+    } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
+      isBullet = true;
+      const bulletText = trimmed.replace(/^[-*•]\s*/, '');
+      const parts = bulletText.split(/(\*\*.*?\*\*)/g);
+      content = (
+        <div className="flex items-start gap-3.5 pl-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-500/80 mt-2.5 shrink-0 shadow-[0_0_8px_#10b981]" />
+          <span className="text-zinc-200 leading-relaxed font-sans font-medium text-[16px]">
+            {parts.map((part, i) => {
+              if (part.startsWith('**') && part.endsWith('**')) {
+                return <strong key={i} className="font-extrabold text-emerald-400 text-[16px]">{part.slice(2, -2)}</strong>;
+              }
+              return <span key={i}>{part}</span>;
+            })}
+          </span>
+        </div>
+      );
     } else {
       const parts = line.split(/(\*\*.*?\*\*)/g);
-      content = parts.map((part, i) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return <strong key={i} className="font-bold text-emerald-400">{part.slice(2, -2)}</strong>;
-        }
-        return <span key={i}>{part}</span>;
-      });
+      content = (
+        <span className="text-zinc-200 leading-relaxed font-sans font-medium text-[16px]">
+          {parts.map((part, i) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={i} className="font-extrabold text-emerald-400 text-[16px]">{part.slice(2, -2)}</strong>;
+            }
+            return <span key={i}>{part}</span>;
+          })}
+        </span>
+      );
     }
 
     return (
-      <div key={lineIdx} className="min-h-[1.25rem]">
+      <div key={lineIdx} className={`min-h-[1.5rem] ${isBullet ? 'my-4' : 'my-1.5'}`}>
         {content}
       </div>
     );
@@ -839,7 +862,7 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="mb-6 animate-in fade-in zoom-in-95 duration-200">
-                      <div className="whitespace-pre-wrap text-zinc-200 text-[13px] leading-relaxed font-sans">
+                      <div className="whitespace-pre-wrap text-zinc-200 text-[16px] md:text-[16.5px] leading-relaxed font-sans">
                         {formatMarkdown(copilotResponse?.answer || '')}
                       </div>
                     </div>

@@ -171,7 +171,7 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
         tableHeaders = cells;
         tableRows = [];
         inTable = true;
-        
+
         // Skip separator line if next
         if (i + 1 < lines.length && lines[i + 1].trim().includes('|') && lines[i + 1].includes('-')) {
           i++; // Skip the separator row
@@ -197,8 +197,8 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
     // Custom headers handling (Default headers formatting)
     if (trimmed === 'SYSTEM INTEGRATOR POV ANSWER:' || trimmed === 'ANSWER:') {
       renderedBlocks.push(
-        <span key={`h-${blockKey++}`} className="text-emerald-400 font-extrabold tracking-widest text-[13px] uppercase block mt-6 mb-2 border-b border-emerald-500/10 pb-1 flex items-center gap-2">
-          <Terminal className="w-4 h-4" /> Systems Integrator POV Output
+        <span key={`h-${blockKey++}`} className="text-emerald-400 font-extrabold tracking-widest text-[15.5px] uppercase block mt-8 mb-3 border-b border-emerald-500/10 pb-1.5 flex items-center gap-2">
+          <Terminal className="w-4 h-4 text-emerald-400" /> Systems Integrator POV Output
         </span>
       );
       continue;
@@ -206,8 +206,8 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
 
     if (trimmed === 'SYSTEM INTEGRATION HIGHLIGHTS:') {
       renderedBlocks.push(
-        <span key={`h-${blockKey++}`} className="text-emerald-400 font-extrabold tracking-widest text-[13px] uppercase block mt-6 mb-2 border-b border-emerald-500/10 pb-1 flex items-center gap-2">
-          <FileCode className="w-4 h-4" /> Core Validation & Trade-offs
+        <span key={`h-${blockKey++}`} className="text-emerald-400 font-extrabold tracking-widest text-[15.5px] uppercase block mt-8 mb-3 border-b border-emerald-500/10 pb-1.5 flex items-center gap-2">
+          <FileCode className="w-4 h-4 text-emerald-400" /> Core Validation & Trade-offs
         </span>
       );
       continue;
@@ -215,8 +215,8 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
 
     if (trimmed === 'REFERENCED DOCUMENTS:') {
       renderedBlocks.push(
-        <span key={`h-${blockKey++}`} className="text-cyan-405 font-extrabold tracking-widest text-[13px] uppercase block mt-6 mb-2 border-b border-cyan-500/10 pb-1 flex items-center gap-2">
-          <FileText className="w-4 h-4" /> Referenced Sources & Compliance
+        <span key={`h-${blockKey++}`} className="text-cyan-405 font-extrabold tracking-widest text-[15.5px] uppercase block mt-8 mb-3 border-b border-cyan-500/10 pb-1.5 flex items-center gap-2">
+          <FileText className="w-4 h-4 text-cyan-405" /> Referenced Sources & Compliance
         </span>
       );
       continue;
@@ -224,8 +224,8 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
 
     if (trimmed === 'KEYWORDS:') {
       renderedBlocks.push(
-        <span key={`h-${blockKey++}`} className="text-amber-500 font-extrabold tracking-widest text-[13px] uppercase block mt-6 mb-2 border-b border-amber-500/10 pb-1 flex items-center gap-2">
-          <Code className="w-4 h-4" /> Architectural Dictionary
+        <span key={`h-${blockKey++}`} className="text-amber-500 font-extrabold tracking-widest text-[15.5px] uppercase block mt-8 mb-3 border-b border-amber-500/10 pb-1.5 flex items-center gap-2">
+          <Code className="w-4 h-4 text-amber-500" /> Architectural Dictionary
         </span>
       );
       continue;
@@ -236,10 +236,10 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
       const depth = (trimmed.match(/^#+/) || [''])[0].length;
       const title = trimmed.replace(/^#+\s*/, '');
       const headerClasses = [
-        'text-base font-black text-white mt-5 mb-2 flex items-center gap-2 border-b border-zinc-800 pb-1',
-        'text-sm font-extrabold text-zinc-100 mt-4 mb-1.5 flex items-center gap-1.5',
-        'text-[12px] font-bold text-zinc-200 mt-3 mb-1.5',
-        'text-[11px] font-bold text-zinc-300 mt-2 mb-1',
+        'text-lg md:text-xl font-black text-white mt-8 mb-3 flex items-center gap-2 border-b border-zinc-800 pb-1.5',
+        'text-base md:text-lg font-extrabold text-zinc-100 mt-7 mb-2.5 flex items-center gap-2',
+        'text-[15px] md:text-[16px] font-bold text-zinc-200 mt-6 mb-2',
+        'text-[14px] md:text-[15px] font-semibold text-zinc-300 mt-5 mb-1.5',
       ];
       const cls = headerClasses[Math.min(depth - 1, headerClasses.length - 1)];
 
@@ -254,12 +254,12 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
       const checked = trimmed.startsWith('- [x]');
       const content = trimmed.slice(5).trim();
       renderedBlocks.push(
-        <div key={`chk-${blockKey++}`} className="flex items-start gap-2.5 my-1.5 text-zinc-300 text-[11px] font-medium leading-relaxed">
-          <span className="mt-0.5 shrink-0 cursor-pointer">
+        <div key={`chk-${blockKey++}`} className="flex items-start gap-3.5 my-4 text-zinc-200 text-[15.5px] font-medium leading-relaxed">
+          <span className="mt-1 shrink-0 cursor-pointer">
             {checked ? (
-              <CheckSquare className="w-3.5 h-3.5 text-emerald-405" />
+              <CheckSquare className="w-4.5 h-4.5 text-emerald-405" />
             ) : (
-              <Square className="w-3.5 h-3.5 text-zinc-650 hover:text-zinc-400" />
+              <Square className="w-4.5 h-4.5 text-zinc-650 hover:text-zinc-400" />
             )}
           </span>
           <span className={checked ? 'line-through text-zinc-550' : ''}>{parseInline(content)}</span>
@@ -272,8 +272,8 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
     if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
       const content = trimmed.slice(2).trim();
       renderedBlocks.push(
-        <div key={`li-${blockKey++}`} className="flex items-start gap-2.5 my-1.5 text-zinc-300 text-[11px] font-medium leading-relaxed pl-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80 mt-1.5 shrink-0 shadow-[0_0_6px_#10b981]" />
+        <div key={`li-${blockKey++}`} className="flex items-start gap-3.5 my-4 text-zinc-200 text-[15.5px] font-medium leading-relaxed pl-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-500/80 mt-2.5 shrink-0 shadow-[0_0_8px_#10b981]" />
           <span>{parseInline(content)}</span>
         </div>
       );
@@ -286,8 +286,8 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
       const num = numberMatch ? numberMatch[1] : '1';
       const content = trimmed.replace(/^\d+\.\s+/, '');
       renderedBlocks.push(
-        <div key={`ol-${blockKey++}`} className="flex items-start gap-2 my-1.5 text-zinc-300 text-[11px] font-medium leading-relaxed pl-2">
-          <span className="font-mono text-[10px] font-bold text-emerald-405 mt-0.5 shrink-0 w-4 text-right pr-1">{num}.</span>
+        <div key={`ol-${blockKey++}`} className="flex items-start gap-3.5 my-4 text-zinc-200 text-[15.5px] font-medium leading-relaxed pl-2">
+          <span className="font-mono text-[13px] font-bold text-emerald-405 mt-0.5 shrink-0 w-4 text-right pr-1">{num}.</span>
           <span>{parseInline(content)}</span>
         </div>
       );
@@ -296,13 +296,13 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
 
     // Empty Lines
     if (trimmed === '') {
-      renderedBlocks.push(<div key={`br-${blockKey++}`} className="h-2" />);
+      renderedBlocks.push(<div key={`br-${blockKey++}`} className="h-3" />);
       continue;
     }
 
     // Default Paragraph text
     renderedBlocks.push(
-      <p key={`p-${blockKey++}`} className="text-zinc-300 text-[11.5px] leading-relaxed font-medium mb-2.5">
+      <p key={`p-${blockKey++}`} className="text-zinc-200 text-[16px] leading-relaxed font-medium mb-4">
         {parseInline(line)}
       </p>
     );
@@ -316,11 +316,11 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
     renderedBlocks.push(renderTable(tableHeaders, tableRows, blockKey++));
   }
 
-  return <div className="space-y-1 font-sans">{renderedBlocks}</div>;
+  return <div className="space-y-2 font-sans">{renderedBlocks}</div>;
 }
 
 // Subcomponent that renders a gorgeously styled, interactive IDE Code File Block
-function CodeFileBlock({ filename, language, code }: { filename: string; language: string; code: string }) {
+function CodeFileBlock({ filename, language, code }: { filename: string; language: string; code: string; key?: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -332,35 +332,35 @@ function CodeFileBlock({ filename, language, code }: { filename: string; languag
   const lines = code.split('\n');
 
   return (
-    <div className="my-4 rounded-xl border border-zinc-800 bg-[#070709] overflow-hidden shadow-2xl flex flex-col font-mono text-[11px]">
+    <div className="my-5 rounded-xl border border-zinc-800 bg-[#070709] overflow-hidden shadow-2xl flex flex-col font-mono text-[13px] md:text-[13.5px]">
       {/* Tab/Window header bar */}
-      <div className="bg-[#0b0b0e] border-b border-zinc-850 px-4 py-2 flex items-center justify-between select-none">
-        <div className="flex items-center gap-2">
-          <FileText className="w-3.5 h-3.5 text-cyan-405" />
-          <span className="text-zinc-400 font-bold text-[10px] tracking-wide">{filename}</span>
-          <span className="text-[8px] px-1.5 py-0.25 rounded bg-zinc-900 border border-zinc-800 text-zinc-550 uppercase font-extrabold tracking-widest">{language}</span>
+      <div className="bg-[#0b0b0e] border-b border-zinc-850 px-4 py-2.5 flex items-center justify-between select-none">
+        <div className="flex items-center gap-2.5">
+          <FileText className="w-4 h-4 text-cyan-405" />
+          <span className="text-zinc-400 font-bold text-[11px] tracking-wide">{filename}</span>
+          <span className="text-[9px] px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-550 uppercase font-extrabold tracking-widest">{language}</span>
         </div>
         <button
           onClick={handleCopy}
-          className="text-zinc-500 hover:text-emerald-400 transition-colors p-1 rounded hover:bg-zinc-900 flex items-center gap-1 cursor-pointer"
+          className="text-zinc-500 hover:text-emerald-400 transition-colors p-1.5 rounded hover:bg-zinc-900 flex items-center gap-1.5 cursor-pointer"
           title="Copy contents to clipboard"
         >
-          {copied ? <Check className="w-3.5 h-3.5 text-emerald-405" /> : <Copy className="w-3.5 h-3.5" />}
-          <span className="text-[9px] uppercase font-bold tracking-widest hidden sm:inline">{copied ? 'Copied' : 'Copy'}</span>
+          {copied ? <Check className="w-4 h-4 text-emerald-405" /> : <Copy className="w-4 h-4" />}
+          <span className="text-[10px] uppercase font-bold tracking-widest hidden sm:inline">{copied ? 'Copied' : 'Copy'}</span>
         </button>
       </div>
 
       {/* Code viewport with line numbering */}
-      <div className="overflow-x-auto max-h-[300px] overflow-y-auto custom-scrollbar p-3 flex bg-[#060608]/90">
+      <div className="overflow-x-auto max-h-[350px] overflow-y-auto custom-scrollbar p-3.5 flex bg-[#060608]/90">
         {/* Line Numbers */}
-        <div className="text-zinc-650 text-right select-none pr-3 border-r border-zinc-850 font-bold text-[10px] leading-relaxed">
+        <div className="text-zinc-650 text-right select-none pr-3.5 border-r border-zinc-850 font-bold text-[12px] leading-relaxed">
           {lines.map((_, i) => (
             <div key={i}>{i + 1}</div>
           ))}
         </div>
-        
+
         {/* Actual Code content */}
-        <pre className="pl-3 text-zinc-300 font-medium leading-relaxed whitespace-pre font-mono text-[11px] flex-1">
+        <pre className="pl-3.5 text-zinc-300 font-medium leading-relaxed whitespace-pre font-mono text-[13px] md:text-[13.5px] flex-1">
           <code>{code}</code>
         </pre>
       </div>
