@@ -19,6 +19,8 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
   let tableHeaders: string[] = [];
   let tableRows: string[][] = [];
 
+  let inReferencedDocuments = false;
+
   // Helper to parse inline formatting (bold, italic, inline code)
   const parseInline = (text: string): React.ReactNode[] => {
     const parts: React.ReactNode[] = [];
@@ -196,6 +198,7 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
 
     // Custom headers handling (Default headers formatting)
     if (trimmed === 'SYSTEM INTEGRATOR POV ANSWER:' || trimmed === 'ANSWER:') {
+      inReferencedDocuments = false;
       renderedBlocks.push(
         <span key={`h-${blockKey++}`} className="text-emerald-400 font-extrabold tracking-widest text-[15.5px] uppercase block mt-8 mb-3 border-b border-emerald-500/10 pb-1.5 flex items-center gap-2">
           <Terminal className="w-4 h-4 text-emerald-400" /> Systems Integrator POV Output
@@ -205,6 +208,7 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
     }
 
     if (trimmed === 'SYSTEM INTEGRATION HIGHLIGHTS:') {
+      inReferencedDocuments = false;
       renderedBlocks.push(
         <span key={`h-${blockKey++}`} className="text-emerald-400 font-extrabold tracking-widest text-[15.5px] uppercase block mt-8 mb-3 border-b border-emerald-500/10 pb-1.5 flex items-center gap-2">
           <FileCode className="w-4 h-4 text-emerald-400" /> Core Validation & Trade-offs
@@ -214,15 +218,17 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
     }
 
     if (trimmed === 'REFERENCED DOCUMENTS:') {
+      inReferencedDocuments = true;
       renderedBlocks.push(
-        <span key={`h-${blockKey++}`} className="text-cyan-405 font-extrabold tracking-widest text-[15.5px] uppercase block mt-8 mb-3 border-b border-cyan-500/10 pb-1.5 flex items-center gap-2">
-          <FileText className="w-4 h-4 text-cyan-405" /> Referenced Sources & Compliance
+        <span key={`h-${blockKey++}`} className="text-cyan-500 font-extrabold tracking-widest text-[10px] uppercase block mt-6 mb-1.5 border-b border-cyan-500/10 pb-1 flex items-center gap-1.5">
+          <FileText className="w-3.5 h-3.5 text-cyan-500" /> Referenced Documents
         </span>
       );
       continue;
     }
 
     if (trimmed === 'KEYWORDS:') {
+      inReferencedDocuments = false;
       renderedBlocks.push(
         <span key={`h-${blockKey++}`} className="text-amber-500 font-extrabold tracking-widest text-[15.5px] uppercase block mt-8 mb-3 border-b border-amber-500/10 pb-1.5 flex items-center gap-2">
           <Code className="w-4 h-4 text-amber-500" /> Architectural Dictionary
@@ -233,6 +239,7 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
 
     // Markdown Headers
     if (trimmed.startsWith('#')) {
+      inReferencedDocuments = false;
       const depth = (trimmed.match(/^#+/) || [''])[0].length;
       const title = trimmed.replace(/^#+\s*/, '');
       const headerClasses = [
@@ -271,12 +278,21 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
     // Bullet List Item
     if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
       const content = trimmed.slice(2).trim();
-      renderedBlocks.push(
-        <div key={`li-${blockKey++}`} className="flex items-start gap-3.5 my-4 text-zinc-200 text-[15.5px] font-medium leading-relaxed pl-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500/80 mt-2.5 shrink-0 shadow-[0_0_8px_#10b981]" />
-          <span>{parseInline(content)}</span>
-        </div>
-      );
+      if (inReferencedDocuments) {
+        renderedBlocks.push(
+          <div key={`li-${blockKey++}`} className="flex items-center gap-2 my-1 text-zinc-400 text-[11px] font-mono leading-relaxed pl-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-500/60 shrink-0" />
+            <span>{parseInline(content)}</span>
+          </div>
+        );
+      } else {
+        renderedBlocks.push(
+          <div key={`li-${blockKey++}`} className="flex items-start gap-3.5 my-4 text-zinc-200 text-[15.5px] font-medium leading-relaxed pl-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500/80 mt-2.5 shrink-0 shadow-[0_0_8px_#10b981]" />
+            <span>{parseInline(content)}</span>
+          </div>
+        );
+      }
       continue;
     }
 
@@ -285,12 +301,21 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
       const numberMatch = trimmed.match(/^(\d+)\.\s+/);
       const num = numberMatch ? numberMatch[1] : '1';
       const content = trimmed.replace(/^\d+\.\s+/, '');
-      renderedBlocks.push(
-        <div key={`ol-${blockKey++}`} className="flex items-start gap-3.5 my-4 text-zinc-200 text-[15.5px] font-medium leading-relaxed pl-2">
-          <span className="font-mono text-[13px] font-bold text-emerald-405 mt-0.5 shrink-0 w-4 text-right pr-1">{num}.</span>
-          <span>{parseInline(content)}</span>
-        </div>
-      );
+      if (inReferencedDocuments) {
+        renderedBlocks.push(
+          <div key={`ol-${blockKey++}`} className="flex items-center gap-2 my-1 text-zinc-400 text-[11px] font-mono leading-relaxed pl-2">
+            <span className="font-mono text-[10px] font-bold text-cyan-500/80 shrink-0 w-3 text-right pr-0.5">{num}.</span>
+            <span>{parseInline(content)}</span>
+          </div>
+        );
+      } else {
+        renderedBlocks.push(
+          <div key={`ol-${blockKey++}`} className="flex items-start gap-3.5 my-4 text-zinc-200 text-[15.5px] font-medium leading-relaxed pl-2">
+            <span className="font-mono text-[13px] font-bold text-emerald-405 mt-0.5 shrink-0 w-4 text-right pr-1">{num}.</span>
+            <span>{parseInline(content)}</span>
+          </div>
+        );
+      }
       continue;
     }
 
@@ -301,11 +326,19 @@ export function MarkdownViewer({ markdown }: MarkdownViewerProps) {
     }
 
     // Default Paragraph text
-    renderedBlocks.push(
-      <p key={`p-${blockKey++}`} className="text-zinc-200 text-[16px] leading-relaxed font-medium mb-4">
-        {parseInline(line)}
-      </p>
-    );
+    if (inReferencedDocuments) {
+      renderedBlocks.push(
+        <p key={`p-${blockKey++}`} className="text-zinc-400 text-[11px] font-mono leading-relaxed mb-1 pl-2">
+          {parseInline(line)}
+        </p>
+      );
+    } else {
+      renderedBlocks.push(
+        <p key={`p-${blockKey++}`} className="text-zinc-200 text-[16px] leading-relaxed font-medium mb-4">
+          {parseInline(line)}
+        </p>
+      );
+    }
   }
 
   // Handle any unclosed code block or table at EOF

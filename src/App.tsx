@@ -24,66 +24,6 @@ interface Metrics {
   isReasoningComplete: boolean;
 }
 
-const formatMarkdown = (text: string) => {
-  if (!text) return null;
-  
-  const lines = text.split('\n');
-  return lines.map((line, lineIdx) => {
-    const trimmed = line.trim();
-    let content: React.ReactNode = line;
-    let isBullet = false;
-    
-    if (trimmed === 'ANSWER:') {
-      content = <span className="text-emerald-400 font-extrabold tracking-widest text-[15px] block mt-5 mb-2.5 pb-1 border-b border-emerald-500/10 flex items-center gap-2">ANSWER</span>;
-    } else if (trimmed === 'SYSTEM INTEGRATOR POV ANSWER:') {
-      content = <span className="text-emerald-400 font-extrabold tracking-widest text-[15px] block mt-5 mb-2.5 pb-1 border-b border-emerald-500/10 flex items-center gap-2">SYSTEM INTEGRATOR POV ANSWER</span>;
-    } else if (trimmed === 'SYSTEM INTEGRATION HIGHLIGHTS:') {
-      content = <span className="text-emerald-400 font-extrabold tracking-widest text-[15px] block mt-6 mb-2.5 pb-1 border-b border-emerald-500/10 flex items-center gap-2">SYSTEM INTEGRATION HIGHLIGHTS</span>;
-    } else if (trimmed === 'REFERENCED DOCUMENTS:') {
-      content = <span className="text-cyan-400 font-extrabold tracking-widest text-[15px] block mt-6 mb-2.5 pb-1 border-b border-cyan-500/10 flex items-center gap-2">REFERENCED DOCUMENTS</span>;
-    } else if (trimmed === 'KEYWORDS:') {
-      content = <span className="text-amber-500 font-extrabold tracking-widest text-[15px] block mt-6 mb-2.5 pb-1 border-b border-amber-500/10 flex items-center gap-2">KEYWORDS</span>;
-    } else if (trimmed === '') {
-      return <div key={lineIdx} className="h-3" />;
-    } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
-      isBullet = true;
-      const bulletText = trimmed.replace(/^[-*•]\s*/, '');
-      const parts = bulletText.split(/(\*\*.*?\*\*)/g);
-      content = (
-        <div className="flex items-start gap-3.5 pl-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500/80 mt-2.5 shrink-0 shadow-[0_0_8px_#10b981]" />
-          <span className="text-zinc-200 leading-relaxed font-sans font-medium text-[16px]">
-            {parts.map((part, i) => {
-              if (part.startsWith('**') && part.endsWith('**')) {
-                return <strong key={i} className="font-extrabold text-emerald-400 text-[16px]">{part.slice(2, -2)}</strong>;
-              }
-              return <span key={i}>{part}</span>;
-            })}
-          </span>
-        </div>
-      );
-    } else {
-      const parts = line.split(/(\*\*.*?\*\*)/g);
-      content = (
-        <span className="text-zinc-200 leading-relaxed font-sans font-medium text-[16px]">
-          {parts.map((part, i) => {
-            if (part.startsWith('**') && part.endsWith('**')) {
-              return <strong key={i} className="font-extrabold text-emerald-400 text-[16px]">{part.slice(2, -2)}</strong>;
-            }
-            return <span key={i}>{part}</span>;
-          })}
-        </span>
-      );
-    }
-
-    return (
-      <div key={lineIdx} className={`min-h-[1.5rem] ${isBullet ? 'my-4' : 'my-1.5'}`}>
-        {content}
-      </div>
-    );
-  });
-};
-
 export default function App() {
   const [context, setContext] = useState<CopilotContext>(() => {
     const saved = localStorage.getItem('interview_copilot_context');
@@ -123,7 +63,21 @@ export default function App() {
     localStorage.setItem('interview_copilot_context', JSON.stringify(context));
   }, [context]);
 
+  const [activeGroundingTab, setActiveGroundingTab] = useState<'persona' | 'company' | 'whirlpool' | 'extra'>('persona');
+  const [activeExtraDocId, setActiveExtraDocId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (Array.isArray(context.extraInfo) && context.extraInfo.length > 0) {
+      if (!activeExtraDocId || !context.extraInfo.some(d => d.id === activeExtraDocId)) {
+        setActiveExtraDocId(context.extraInfo[0].id);
+      }
+    } else {
+      setActiveExtraDocId(null);
+    }
+  }, [context.extraInfo, activeExtraDocId]);
+
   const handleAddExtraInfoDoc = () => {
+    const newId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
     setContext(prev => {
       const currentDocs = Array.isArray(prev.extraInfo) ? prev.extraInfo : [];
       return {
@@ -131,13 +85,15 @@ export default function App() {
         extraInfo: [
           ...currentDocs,
           {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+            id: newId,
             header: '',
             information: ''
           }
         ]
       };
     });
+    setActiveExtraDocId(newId);
+    setActiveGroundingTab('extra');
   };
 
   const handleUpdateExtraInfoDoc = (id: string, field: 'header' | 'information', value: string) => {
@@ -501,201 +457,325 @@ export default function App() {
                   <Settings className="w-3.5 h-3.5 text-zinc-400" /> Grounding Panel
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[1100px] w-[95vw] h-[85vh] flex flex-col bg-[#0c0c0e] border-zinc-800 text-zinc-100 shadow-[0_0_80px_-20px_rgba(16,185,129,0.1)]">
-                <DialogHeader className="border-b border-zinc-800 pb-3">
+              <DialogContent className="sm:max-w-[1100px] w-[95vw] h-[85vh] flex flex-col bg-[#0c0c0e] border-zinc-800 text-zinc-100 shadow-[0_0_80px_-20px_rgba(16,185,129,0.1)] overflow-hidden">
+                <DialogHeader className="border-b border-zinc-800 pb-3 shrink-0">
                   <DialogTitle className="text-zinc-100 font-extrabold text-lg flex items-center gap-2">
                     <Settings className="w-5 h-5 text-emerald-500" /> Grounding Context Control Center
                   </DialogTitle>
                 </DialogHeader>
                 
-                <div className="flex-1 overflow-y-auto mt-4 pr-1">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full pb-4">
-                    {/* Left Column: Primary Persona & Profile Grounding */}
-                    <div className="space-y-4 pr-0 md:pr-4 md:border-r border-zinc-800/80">
-                      <h3 className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400 mb-2 border-b border-zinc-800/60 pb-2 flex items-center gap-2">
-                        <User className="w-3.5 h-3.5 text-emerald-500" /> Candidate & Role Settings
-                      </h3>
-                      
-                      {/* Target Role Dropdown */}
-                      <details className="group border border-zinc-800 rounded-lg p-3 bg-zinc-950/40 open:bg-zinc-950 open:border-emerald-500/20 transition-all">
-                        <summary className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 cursor-pointer flex items-center justify-between outline-none">
-                          <span className="flex items-center gap-2">Target Role</span>
-                          <span className="text-[9px] px-2 py-0.5 rounded border border-zinc-800 text-emerald-400 bg-emerald-500/5 font-mono max-w-[200px] truncate group-open:hidden">
-                            {context.targetRole || 'Not Set'}
+                <div className="flex flex-1 min-h-0 mt-4 gap-6 overflow-hidden">
+                  {/* Left Tab Sidebar */}
+                  <div className="w-[230px] shrink-0 flex flex-col gap-2 border-r border-zinc-800/80 pr-4 overflow-y-auto custom-scrollbar">
+                    <button
+                      type="button"
+                      onClick={() => setActiveGroundingTab('persona')}
+                      className={`flex items-start gap-3 w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer ${
+                        activeGroundingTab === 'persona'
+                          ? 'bg-emerald-500/10 border-emerald-500/20 text-white shadow-[0_0_15px_rgba(16,185,129,0.05)]'
+                          : 'bg-transparent border-transparent hover:border-zinc-800/80 hover:bg-zinc-900/40 text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      <User className={`w-4 h-4 mt-0.5 shrink-0 ${activeGroundingTab === 'persona' ? 'text-emerald-500' : 'text-zinc-500'}`} />
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[11px] font-bold uppercase tracking-wider">Candidate Profile</span>
+                        <span className="text-[9px] text-zinc-500 font-normal mt-0.5 leading-snug">Target role & resume</span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveGroundingTab('company')}
+                      className={`flex items-start gap-3 w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer ${
+                        activeGroundingTab === 'company'
+                          ? 'bg-emerald-500/10 border-emerald-500/20 text-white shadow-[0_0_15px_rgba(16,185,129,0.05)]'
+                          : 'bg-transparent border-transparent hover:border-zinc-800/80 hover:bg-zinc-900/40 text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      <Briefcase className={`w-4 h-4 mt-0.5 shrink-0 ${activeGroundingTab === 'company' ? 'text-emerald-500' : 'text-zinc-500'}`} />
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[11px] font-bold uppercase tracking-wider">Job & Company</span>
+                        <span className="text-[9px] text-zinc-500 font-normal mt-0.5 leading-snug">JD and company values</span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveGroundingTab('whirlpool')}
+                      className={`flex items-start gap-3 w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer ${
+                        activeGroundingTab === 'whirlpool'
+                          ? 'bg-emerald-500/10 border-emerald-500/20 text-white shadow-[0_0_15px_rgba(16,185,129,0.05)]'
+                          : 'bg-transparent border-transparent hover:border-zinc-800/80 hover:bg-zinc-900/40 text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      <Building2 className={`w-4 h-4 mt-0.5 shrink-0 ${activeGroundingTab === 'whirlpool' ? 'text-emerald-500' : 'text-zinc-500'}`} />
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[11px] font-bold uppercase tracking-wider">Whirlpool Context</span>
+                        <span className="text-[9px] text-zinc-500 font-normal mt-0.5 leading-snug">Continuous projects log</span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveGroundingTab('extra')}
+                      className={`flex items-start gap-3 w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer ${
+                        activeGroundingTab === 'extra'
+                          ? 'bg-emerald-500/10 border-emerald-500/20 text-white shadow-[0_0_15px_rgba(16,185,129,0.05)]'
+                          : 'bg-transparent border-transparent hover:border-zinc-800/80 hover:bg-zinc-900/40 text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      <div className="relative shrink-0">
+                        <FileText className={`w-4 h-4 mt-0.5 ${activeGroundingTab === 'extra' ? 'text-emerald-500' : 'text-zinc-500'}`} />
+                        {Array.isArray(context.extraInfo) && context.extraInfo.length > 0 && (
+                          <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 text-[8px] font-extrabold text-zinc-950 shadow-[0_0_8px_rgba(16,185,129,0.4)]">
+                            {context.extraInfo.length}
                           </span>
-                        </summary>
-                        <div className="mt-3">
+                        )}
+                      </div>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="text-[11px] font-bold uppercase tracking-wider">Extra Documents</span>
+                        <span className="text-[9px] text-zinc-500 font-normal mt-0.5 leading-snug">Supplementary sheets</span>
+                      </div>
+                    </button>
+                  </div>
+                  
+                  {/* Right Tab Content Pane */}
+                  <div className="flex-1 min-h-0 flex flex-col pb-2">
+                    {activeGroundingTab === 'persona' && (
+                      <div className="flex flex-col h-full min-h-0 space-y-4 animate-in fade-in duration-150">
+                        <div className="shrink-0 pb-1 border-b border-zinc-900">
+                          <h3 className="text-sm font-extrabold uppercase tracking-widest text-emerald-400 flex items-center gap-2">
+                            <User className="w-4 h-4 text-emerald-500" /> Candidate Profile Grounding
+                          </h3>
+                          <p className="text-[11px] text-zinc-400 mt-1 font-sans leading-relaxed">
+                            Define your target job title and a summary of your professional experiences. This helps the Strategic Response Engine align its tone, expertise level, and framing to match your exact level of seniority.
+                          </p>
+                        </div>
+
+                        <div className="shrink-0 space-y-1.5">
+                          <Label className="text-[10px] text-zinc-400 uppercase tracking-widest font-black font-mono">Target Role / Job Title</Label>
                           <Input
-                            placeholder="e.g. Senior Frontend Engineer"
+                            placeholder="e.g. Senior Frontend Engineer, Systems Integrator"
                             value={context.targetRole}
                             onChange={(e) => handleContextChange('targetRole', e.target.value)}
-                            className="bg-zinc-950 border-zinc-800 text-zinc-200 focus:border-emerald-500"
+                            className="bg-zinc-950 border-zinc-800 text-zinc-100 focus:border-emerald-500 h-10 text-xs font-semibold px-3"
                           />
                         </div>
-                      </details>
 
-                      {/* Resume Dropdown */}
-                      <details className="group border border-zinc-800 rounded-lg p-3 bg-zinc-950/40 open:bg-zinc-950 open:border-emerald-500/20 transition-all">
-                        <summary className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 cursor-pointer flex items-center justify-between outline-none">
-                          <span className="flex items-center gap-2">Your Resume (Summary)</span>
-                          <span className="text-[9px] px-2 py-0.5 rounded border border-zinc-800 text-emerald-400 bg-emerald-500/5 font-mono max-w-[200px] truncate group-open:hidden">
-                            {context.resume ? `${context.resume.slice(0, 30)}...` : 'Empty'}
-                          </span>
-                        </summary>
-                        <div className="mt-3">
+                        <div className="flex-1 flex flex-col min-h-0 space-y-1.5">
+                          <Label className="text-[10px] text-zinc-400 uppercase tracking-widest font-black font-mono">Your Resume Summary / Key Experience Highlights</Label>
                           <Textarea
-                            placeholder="Paste your resume or key bullet points..."
+                            placeholder="Paste your resume, key technical highlights, or main bullet points here..."
                             value={context.resume}
                             onChange={(e) => handleContextChange('resume', e.target.value)}
-                            className="resize-none bg-zinc-950 border-zinc-800 text-zinc-200 focus:border-emerald-500 text-xs"
-                            rows={6}
+                            className="flex-1 bg-zinc-950 border-zinc-800 text-zinc-200 focus:border-emerald-500 text-xs font-mono p-3.5 resize-none leading-relaxed h-full overflow-y-auto custom-scrollbar"
                           />
                         </div>
-                      </details>
+                      </div>
+                    )}
 
-                      {/* Job Description Dropdown */}
-                      <details className="group border border-zinc-800 rounded-lg p-3 bg-zinc-950/40 open:bg-zinc-950 open:border-emerald-500/20 transition-all">
-                        <summary className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 cursor-pointer flex items-center justify-between outline-none">
-                          <span className="flex items-center gap-2">Job Description</span>
-                          <span className="text-[9px] px-2 py-0.5 rounded border border-zinc-800 text-emerald-400 bg-emerald-500/5 font-mono max-w-[200px] truncate group-open:hidden">
-                            {context.jobDescription ? `${context.jobDescription.slice(0, 30)}...` : 'Empty'}
-                          </span>
-                        </summary>
-                        <div className="mt-3">
-                          <Textarea
-                            placeholder="Paste the job description here..."
-                            value={context.jobDescription}
-                            onChange={(e) => handleContextChange('jobDescription', e.target.value)}
-                            className="resize-none bg-zinc-950 border-zinc-800 text-zinc-200 focus:border-emerald-500 text-xs"
-                            rows={5}
-                          />
+                    {activeGroundingTab === 'company' && (
+                      <div className="flex flex-col h-full min-h-0 space-y-4 animate-in fade-in duration-150">
+                        <div className="shrink-0 pb-1 border-b border-zinc-900">
+                          <h3 className="text-sm font-extrabold uppercase tracking-widest text-emerald-400 flex items-center gap-2">
+                            <Briefcase className="w-4 h-4 text-emerald-500" /> Target Job & Company Grounding
+                          </h3>
+                          <p className="text-[11px] text-zinc-400 mt-1 font-sans leading-relaxed">
+                            Provide the specific Job Description and Target Company values. Grounding responses in the JD allows the assistant to focus on key qualifications, highlight relevant experiences, and mirror company-specific vocabulary.
+                          </p>
                         </div>
-                      </details>
 
-                      {/* Company Info Dropdown */}
-                      <details className="group border border-zinc-800 rounded-lg p-3 bg-zinc-950/40 open:bg-zinc-950 open:border-emerald-500/20 transition-all">
-                        <summary className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 cursor-pointer flex items-center justify-between outline-none">
-                          <span className="flex items-center gap-2">Company Info</span>
-                          <span className="text-[9px] px-2 py-0.5 rounded border border-zinc-800 text-emerald-400 bg-emerald-500/5 font-mono max-w-[200px] truncate group-open:hidden">
-                            {context.companyInfo ? `${context.companyInfo.slice(0, 30)}...` : 'Empty'}
-                          </span>
-                        </summary>
-                        <div className="mt-3">
-                          <Textarea
-                            placeholder="Key values, culture, products..."
-                            value={context.companyInfo}
-                            onChange={(e) => handleContextChange('companyInfo', e.target.value)}
-                            className="resize-none bg-zinc-950 border-zinc-800 text-zinc-200 focus:border-emerald-500 text-xs"
-                            rows={3}
-                          />
-                        </div>
-                      </details>
-                    </div>
-
-                    {/* Right Column: Custom Data & Detailed Engineering Grounding */}
-                    <div className="space-y-4">
-                      {/* Whirlpool Grounding Dropdown */}
-                      <details className="group border border-emerald-800/20 rounded-lg p-3 bg-zinc-950/40 open:bg-zinc-950 open:border-emerald-500/20 transition-all">
-                        <summary className="text-[11px] font-bold uppercase tracking-widest text-emerald-400 cursor-pointer flex items-center justify-between outline-none">
-                          <span className="flex items-center gap-2">
-                            <Building2 className="w-4 h-4 text-emerald-500" /> Whirlpool Grounding
-                          </span>
-                          <span className="text-[9px] px-2 py-0.5 rounded border border-emerald-500/30 text-emerald-400 bg-emerald-500/5 font-mono group-open:hidden">
-                            {context.whirlpoolDocument ? `${context.whirlpoolDocument.slice(0, 30)}...` : 'Empty'}
-                          </span>
-                        </summary>
-                        <div className="mt-3">
-                          <div className="flex justify-between items-center text-[10px] text-zinc-400 font-mono mb-2">
-                            <span>Continuous document paste style context grounding</span>
-                            <button
-                              type="button"
-                              onClick={handleRestoreDefaultDocument}
-                              className="text-emerald-500 hover:text-emerald-400 font-semibold underline underline-offset-2 transition-colors cursor-pointer"
-                            >
-                              Restore Default Document
-                            </button>
+                        <div className="flex-1 grid grid-cols-2 gap-5 min-h-0">
+                          <div className="flex flex-col h-full min-h-0 space-y-1.5">
+                            <Label className="text-[10px] text-zinc-400 uppercase tracking-widest font-black font-mono">Job Description (JD)</Label>
+                            <Textarea
+                              placeholder="Paste the target job description or requirements here..."
+                              value={context.jobDescription}
+                              onChange={(e) => handleContextChange('jobDescription', e.target.value)}
+                              className="flex-1 bg-zinc-950 border-zinc-800 text-zinc-200 focus:border-emerald-500 text-xs p-3.5 resize-none leading-relaxed h-full overflow-y-auto custom-scrollbar"
+                            />
                           </div>
+
+                          <div className="flex flex-col h-full min-h-0 space-y-1.5">
+                            <Label className="text-[10px] text-zinc-400 uppercase tracking-widest font-black font-mono">Company Information & Core Values</Label>
+                            <Textarea
+                              placeholder="Key values, culture, target tech stack, team goals, or other insights about the company..."
+                              value={context.companyInfo}
+                              onChange={(e) => handleContextChange('companyInfo', e.target.value)}
+                              className="flex-1 bg-zinc-950 border-zinc-800 text-zinc-200 focus:border-emerald-500 text-xs p-3.5 resize-none leading-relaxed h-full overflow-y-auto custom-scrollbar"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {activeGroundingTab === 'whirlpool' && (
+                      <div className="flex flex-col h-full min-h-0 space-y-4 animate-in fade-in duration-150">
+                        <div className="shrink-0 flex items-center justify-between border-b border-zinc-800 pb-2.5">
+                          <div>
+                            <h3 className="text-sm font-extrabold uppercase tracking-widest text-emerald-400 flex items-center gap-2">
+                              <Building2 className="w-4 h-4 text-emerald-500" /> Whirlpool Experience Grounding
+                            </h3>
+                            <p className="text-[11px] text-zinc-400 mt-1 font-sans leading-relaxed">
+                              Continuous work experience context for Whirlpool roles, projects, DFMEA, airflow integrations, and engineering achievements.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleRestoreDefaultDocument}
+                            className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold uppercase tracking-wider border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                          >
+                            Restore Defaults
+                          </button>
+                        </div>
+
+                        <div className="flex-1 flex flex-col min-h-0">
                           <Textarea
-                            placeholder="Paste your Whirlpool projects, roles, contributions..."
+                            placeholder="Paste your Whirlpool experience, projects, or achievements here..."
                             value={context.whirlpoolDocument}
                             onChange={(e) => handleContextChange('whirlpoolDocument', e.target.value)}
-                            className="resize-y bg-zinc-950 border-zinc-800 text-zinc-200 focus:border-emerald-500 text-[12px] font-mono leading-relaxed"
-                            rows={8}
+                            className="flex-1 bg-zinc-950 border-zinc-800 text-zinc-200 focus:border-emerald-500 text-[12px] font-mono leading-relaxed p-4 resize-none h-full overflow-y-auto custom-scrollbar"
                           />
                         </div>
-                      </details>
+                      </div>
+                    )}
 
-                      {/* Extra Info Documents Dropdown */}
-                      <details className="group border border-zinc-800 rounded-lg p-3 bg-zinc-950/40 open:bg-zinc-950 open:border-emerald-500/20 transition-all">
-                        <summary className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 cursor-pointer flex items-center justify-between outline-none">
-                          <span className="flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-emerald-500" /> Extra Information Documents
-                          </span>
-                          <span className="text-[9px] px-2 py-0.5 rounded border border-zinc-800 text-emerald-400 bg-emerald-500/5 font-mono group-open:hidden">
-                            {Array.isArray(context.extraInfo) ? `${context.extraInfo.length} Documents` : '0 Documents'}
-                          </span>
-                        </summary>
-                        <div className="mt-4 space-y-4">
-                          <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-1">
-                            {Array.isArray(context.extraInfo) && context.extraInfo.map((doc, index) => (
-                              <div key={doc.id} className="p-4 bg-zinc-900/40 border border-zinc-800 rounded-lg relative group/doc space-y-3 shadow-md hover:border-zinc-700/60 transition-colors">
-                                
-                                <div className="flex items-center justify-between border-b border-zinc-850 pb-1.5">
-                                  <span className="text-[10px] font-mono text-zinc-500 uppercase font-semibold">Document #{index + 1}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteExtraInfoDoc(doc.id)}
-                                    className="text-red-405 hover:text-red-400 p-1.5 rounded hover:bg-red-500/10 transition-colors cursor-pointer"
-                                    title="Delete document"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
+                    {activeGroundingTab === 'extra' && (
+                      <div className="flex flex-col h-full min-h-0 space-y-4 animate-in fade-in duration-150">
+                        <div className="shrink-0 pb-1 border-b border-zinc-900">
+                          <h3 className="text-sm font-extrabold uppercase tracking-widest text-emerald-400 flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-emerald-500" /> Extra Information Documents Registry
+                          </h3>
+                          <p className="text-[11px] text-zinc-400 mt-1 font-sans leading-relaxed">
+                            Add supplementary documents like technical specifications, system log files, design requirements, and engineering spreadsheets. This injects context directly into the Strategic Response Engine.
+                          </p>
+                        </div>
 
-                                <div className="space-y-3">
-                                  <div className="space-y-1.5">
-                                    <Label className="text-[10px] text-zinc-400 uppercase font-mono block">Header / Key</Label>
-                                    <Input
-                                      placeholder="e.g. Project Specs"
-                                      value={doc.header}
-                                      onChange={(e) => handleUpdateExtraInfoDoc(doc.id, 'header', e.target.value)}
-                                      className="bg-zinc-950 border-zinc-800 text-zinc-200 focus:border-emerald-500 h-8.5 text-xs font-semibold"
-                                    />
-                                  </div>
-
-                                  <div className="space-y-1.5">
-                                    <Label className="text-[10px] text-zinc-400 uppercase font-mono block">Information / Value</Label>
-                                    <Textarea
-                                      placeholder="Paste or type content here (e.g. 200 rows of specifications or logs)..."
-                                      value={doc.information}
-                                      onChange={(e) => handleUpdateExtraInfoDoc(doc.id, 'information', e.target.value)}
-                                      className="bg-zinc-950 border-zinc-800 text-zinc-200 focus:border-emerald-500 text-xs h-28 max-h-28 overflow-y-auto resize-none font-mono leading-relaxed p-2.5"
-                                    />
-                                  </div>
-                                </div>
-
-                              </div>
-                            ))}
-
-                            {(!Array.isArray(context.extraInfo) || context.extraInfo.length === 0) && (
-                              <div className="text-xs text-zinc-500 italic text-center py-6 border border-dashed border-zinc-800 rounded-lg bg-zinc-950/20">
-                                No extra information documents added yet.
-                              </div>
-                            )}
+                        <div className="flex-1 flex h-full min-h-0 gap-6 overflow-hidden">
+                          {/* Left Column: Registry Sidebar */}
+                          <div className="w-[250px] shrink-0 flex flex-col gap-3 h-full border-r border-zinc-800/60 pr-4 min-h-0">
+                            <div className="flex items-center justify-between shrink-0">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Files Registered</span>
+                              <Badge variant="outline" className="text-[9px] text-emerald-400 border-emerald-500/20 bg-emerald-500/5 font-mono">
+                                {context.extraInfo?.length || 0} Files
+                              </Badge>
+                            </div>
                             
+                            {/* Scrollable list of document cards */}
+                            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0 custom-scrollbar">
+                              {Array.isArray(context.extraInfo) && context.extraInfo.map((doc, idx) => {
+                                const isActive = doc.id === activeExtraDocId;
+                                const wordCount = doc.information ? doc.information.trim().split(/\s+/).filter(Boolean).length : 0;
+                                const title = doc.header.trim() || `Untitled Doc #${idx + 1}`;
+                                const snippet = doc.information ? (doc.information.length > 50 ? `${doc.information.slice(0, 50)}...` : doc.information) : 'Empty document...';
+
+                                return (
+                                  <div 
+                                    key={doc.id}
+                                    onClick={() => setActiveExtraDocId(doc.id)}
+                                    className={`group p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                                      isActive 
+                                        ? 'bg-emerald-500/5 border-emerald-500/30 shadow-[0_4px_12px_rgba(16,185,129,0.02)]' 
+                                        : 'bg-zinc-950/40 border-zinc-800/85 hover:bg-zinc-900/40 hover:border-zinc-700/60'
+                                    }`}
+                                  >
+                                    <div className="flex items-start justify-between gap-2 min-w-0">
+                                      <span className={`text-[11.5px] font-bold truncate flex-1 ${isActive ? 'text-emerald-400' : 'text-zinc-200'}`}>
+                                        {title}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteExtraInfoDoc(doc.id);
+                                        }}
+                                        className="text-zinc-500 hover:text-red-400 p-1 rounded hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 cursor-pointer"
+                                        title="Delete document"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                    
+                                    <p className="text-[10px] text-zinc-500 mt-1.5 line-clamp-2 leading-relaxed">
+                                      {snippet}
+                                    </p>
+                                    
+                                    <div className="flex items-center justify-between text-[8px] font-mono text-zinc-600 mt-3 pt-2 border-t border-zinc-850">
+                                      <span>Doc #{idx + 1}</span>
+                                      <span>{wordCount} words</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              
+                              {(!context.extraInfo || context.extraInfo.length === 0) && (
+                                <div className="text-[11px] text-zinc-500 italic text-center py-10 px-4 border border-dashed border-zinc-850 rounded-xl bg-zinc-950/10">
+                                  No extra grounding documents registered.
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Add button at the bottom of the list */}
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
                               onClick={handleAddExtraInfoDoc}
-                              className="w-full gap-1.5 border-dashed border-zinc-700 bg-transparent text-zinc-400 hover:text-emerald-400 hover:border-emerald-500/40 hover:bg-emerald-500/5 h-9 text-xs font-semibold"
+                              className="w-full gap-1.5 border-dashed border-zinc-700 bg-zinc-900/20 text-zinc-400 hover:text-emerald-400 hover:border-emerald-500/40 hover:bg-emerald-500/5 h-9.5 text-xs font-semibold shrink-0 cursor-pointer"
                             >
-                              <Plus className="w-4 h-4" /> Add Extra Grounding Document
+                              <Plus className="w-4 h-4" /> Add Document
                             </Button>
                           </div>
+
+                          {/* Right Column: Spacious Editor */}
+                          <div className="flex-1 flex flex-col h-full min-h-0 bg-[#0a0a0c] border border-zinc-800/80 rounded-2xl p-4.5">
+                            {activeExtraDocId && context.extraInfo?.find(d => d.id === activeExtraDocId) ? (
+                              (() => {
+                                const doc = context.extraInfo.find(d => d.id === activeExtraDocId)!;
+                                return (
+                                  <div className="flex flex-col h-full min-h-0 space-y-4">
+                                    <div className="space-y-1.5">
+                                      <Label className="text-[10px] text-zinc-400 uppercase tracking-widest font-black font-mono">Document Header / Key Name</Label>
+                                      <Input
+                                        placeholder="e.g. Whirlpool Direct Drive Spec, System Architecture, etc."
+                                        value={doc.header}
+                                        onChange={(e) => handleUpdateExtraInfoDoc(doc.id, 'header', e.target.value)}
+                                        className="bg-zinc-950 border-zinc-850 text-zinc-100 focus:border-emerald-500 h-10 text-xs font-semibold px-3"
+                                      />
+                                    </div>
+
+                                    <div className="flex-1 flex flex-col min-h-0 space-y-1.5">
+                                      <div className="flex items-center justify-between">
+                                        <Label className="text-[10px] text-zinc-400 uppercase tracking-widest font-black font-mono">Document Information Content</Label>
+                                        <span className="text-[8px] font-mono text-zinc-650 uppercase">Context Injector</span>
+                                      </div>
+                                      <Textarea
+                                        placeholder="Paste or type supplementary document content here (e.g. engineering specs, validation logs, etc.)..."
+                                        value={doc.information}
+                                        onChange={(e) => handleUpdateExtraInfoDoc(doc.id, 'information', e.target.value)}
+                                        className="flex-1 bg-zinc-950 border-zinc-850 text-zinc-200 focus:border-emerald-500 text-xs p-3.5 resize-none font-mono leading-relaxed h-full overflow-y-auto custom-scrollbar"
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })()
+                            ) : (
+                              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-zinc-500">
+                                <FileText className="w-12 h-12 text-zinc-800 mb-3" />
+                                <p className="text-xs">Select a document from the registry on the left to edit its contents, or add a new grounding document.</p>
+                                <Button
+                                  type="button"
+                                  onClick={handleAddExtraInfoDoc}
+                                  className="mt-4 bg-emerald-500 text-zinc-950 hover:bg-emerald-455 text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer animate-pulse"
+                                >
+                                  Add First Document
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </details>
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </DialogContent>
@@ -862,9 +942,7 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="mb-6 animate-in fade-in zoom-in-95 duration-200">
-                      <div className="whitespace-pre-wrap text-zinc-200 text-[16px] md:text-[16.5px] leading-relaxed font-sans">
-                        {formatMarkdown(copilotResponse?.answer || '')}
-                      </div>
+                      <MarkdownViewer markdown={copilotResponse?.answer || ''} />
                     </div>
                   )}
                 </ScrollArea>
