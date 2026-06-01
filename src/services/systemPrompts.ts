@@ -57,9 +57,9 @@ Requirements:
 * Use clear headings (#, ##, ###)
 * Use bullet points instead of long paragraphs
 * Highlight important terms using **bold**
-* Extract and emphasize relevant **job description keywords**
-* Extract and emphasize relevant **NPD keywords**
-* Extract and emphasize relevant **Project Management keywords**
+* Extract and try to emphasize relevant **job description keywords** in the answer
+* Extract and try to emphasize relevant **NPD keywords** in the answer
+* Extract and try to emphasize relevant **Project Management keywords** in the answer
 * Keep responses concise and recruiter-focused
 * Stay grounded in the provided Resume, JD, and Context
 * Use external knowledge to enrich explanations
